@@ -1,0 +1,15 @@
+Side bar
+Message button and profile button is not working
+
+Calender bookmark and contac us page is also not desined
+
+help and faqs also not working same for setting 
+
+
+Home page
+
+current location should come from the location tools
+
+
+searchpage
+result should be dynamic from database

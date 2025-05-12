@@ -1,8 +1,91 @@
-import 'package:flutter/material.dart';
-import 'package:hexcolor/hexcolor.dart';
+// ignore_for_file: avoid_print
 
-class ProfilePage extends StatelessWidget {
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hexcolor/hexcolor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smart_event_frontend/pages/followerfollwinglist.dart';
+import 'package:smart_event_frontend/services/follow_service.dart';
+
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+  @override
+  State<ProfilePage> createState() => ProfilePageState();
+}
+
+class ProfilePageState extends State<ProfilePage> {
+  final FollowService _followService = FollowService();
+  final storage = const FlutterSecureStorage();
+
+  List followers = [];
+  List following = [];
+  List<Map<String, dynamic>> followerslist = [];
+  List<Map<String, dynamic>> followinglist = [];
+  bool isLoading = true;
+  String currentUserId = "";
+  String base64Image = '';
+  String username = '';
+  Uint8List? imageBytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFollowData();
+    loadUserId();
+  }
+
+  Future<void> loadUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userData = prefs.getString('user');
+
+    if (userData != null) {
+      final Map<String, dynamic> json = jsonDecode(userData);
+      setState(() {
+        currentUserId = json['id'];
+        base64Image = json['profilePicture'] ?? '';
+        username = json['userName'] ?? '';
+
+        if (base64Image.isNotEmpty) {
+          imageBytes = base64Decode(base64Image);
+        }
+      });
+    }
+  }
+
+  Future<void> _loadFollowData() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      followers = await _followService.getFollowers(currentUserId);
+      following = await _followService.getFollowing(currentUserId);
+      followerslist = followers.map((item) {
+        return {
+          'userName': item['userName'],
+          'userId': item['id'],
+          'profilePicture': item['profilePicture'],
+        };
+      }).toList();
+
+      followinglist = following.map((item) {
+        return {
+          'userName': item['userName'],
+          'userId': item['id'],
+          'profilePicture': item['profilePicture'],
+        };
+      }).toList();
+    } catch (e) {
+      print('Error loading follow data: $e');
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11,16 +94,6 @@ class ProfilePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: HexColor("#4a43ec"),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            color: Colors.white,
-            size: 30,
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
         title: const Text(
           "Profile",
           style: TextStyle(
@@ -34,14 +107,15 @@ class ProfilePage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 50,
-              backgroundImage: AssetImage('images/profile.jpg'),
+              backgroundImage:
+                  imageBytes != null ? MemoryImage(imageBytes!) : null,
             ),
             SizedBox(height: screenHeight * 0.02),
-            const Text(
-              'Hamza Abid',
-              style: TextStyle(
+            Text(
+              username,
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
@@ -52,42 +126,56 @@ class ProfilePage extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Column(
-                  children: [
-                    Text(
-                      '350',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                GestureDetector(
+                  child: _buildFollowCount("Following", following.length),
+                  onTap: () {
+                    List<String> followingUsernames = followinglist
+                        .map((item) => item['userName'] as String)
+                        .toList();
+                    List<String> followingImages = followinglist
+                        .map((item) => item['profilePicture'] as String)
+                        .toList();
+                    List<String> followingId = followinglist
+                        .map((item) => item['userId'] as String)
+                        .toList();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FollowerFollowingListPage(
+                          usernames: followingUsernames,
+                          images: followingImages,
+                          title: "Following",
+                          userId: followingId,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Following',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-                SizedBox(width: screenWidth * 0.1),
-                const Column(
-                  children: [
-                    Text(
-                      '346',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                SizedBox(width: screenWidth * 0.07),
+                GestureDetector(
+                  child: _buildFollowCount("Followers", followers.length),
+                  onTap: () {
+                    List<String> followerUsernames = followerslist
+                        .map((item) => item['userName'] as String)
+                        .toList();
+                    List<String> followerImages = followerslist
+                        .map((item) => item['profilePicture'] as String)
+                        .toList();
+                    List<String> followerId = followerslist
+                        .map((item) => item['userId'] as String)
+                        .toList();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FollowerFollowingListPage(
+                          usernames: followerUsernames,
+                          images: followerImages,
+                          title: "Followers",
+                          userId: followerId,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Followers',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -178,6 +266,16 @@ class ProfilePage extends StatelessWidget {
         label,
         style: const TextStyle(color: Colors.white, fontSize: 14),
       ),
+    );
+  }
+
+  Widget _buildFollowCount(String label, int count) {
+    return Column(
+      children: [
+        Text("$count",
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+      ],
     );
   }
 }

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
-import 'package:smart_event_frontend/pages/reset_password.dart';
+import 'package:smart_event_frontend/pages/login.dart';
+import 'package:smart_event_frontend/services/auth_service.dart';
 
 class ForgotPass extends StatefulWidget {
   const ForgotPass({super.key});
@@ -13,6 +15,7 @@ class ForgotPass extends StatefulWidget {
 
 class ForgotPassState extends State<ForgotPass> {
   TextEditingController emailController = TextEditingController();
+  TextEditingController usernameController = TextEditingController();
   TextStyle fieldStyle = const TextStyle(
     fontFamily: 'Montserrat',
     fontWeight: FontWeight.w400,
@@ -23,6 +26,7 @@ class ForgotPassState extends State<ForgotPass> {
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -60,7 +64,7 @@ class ForgotPassState extends State<ForgotPass> {
                 height: screenHeight * 0.01,
               ),
               Text(
-                'Enter email address which recieve a 4 digit verification code',
+                'Enter email address which will receive a 4 digit verification code',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: HexColor('#82222280'),
@@ -93,14 +97,71 @@ class ForgotPassState extends State<ForgotPass> {
               ),
               SizedBox(
                 width: screenWidth * 0.9,
+                child: TextField(
+                  controller: usernameController,
+                  decoration: InputDecoration(
+                    labelText: 'Username',
+                    labelStyle: fieldStyle,
+                    hintText: 'Enter Your Username...',
+                    hintStyle: fieldStyle,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(5.0),
+                    ),
+                  ),
+                  style: fieldStyle,
+                ),
+              ),
+              SizedBox(
+                height: screenHeight * 0.03,
+              ),
+              SizedBox(
+                width: screenWidth * 0.9,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ResetPassword(),
-                      ),
-                    );
+                  onPressed: () async {
+                    String email = emailController.text.trim();
+                    String username = usernameController.text.trim();
+
+                    if (email.isEmpty || username.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please enter both email and username')),
+                      );
+                      return;
+                    }
+
+                    // URL encode the email and username
+                    String encodedEmail = Uri.encodeComponent(email);
+                    String encodedUsername = Uri.encodeComponent(username);
+
+                    final authService = AuthService();
+                    final response = await authService.forgotPassword(encodedEmail, encodedUsername);
+
+                    if (response != null && response['result'] == true) {
+                      String tempPassword = response['data'];
+
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('Temporary Password'),
+                            content: Text('Your temporary password is: $tempPassword'),
+                            actions: [
+                              TextButton(
+                                child: const Text('OK'),
+                                onPressed: (){
+                                  Navigator.push(context, MaterialPageRoute(builder: (context)=>const Login()));
+                                }
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(response?['message'] ?? 'Something went wrong'),
+                        ),
+                      );
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: HexColor('#5669ff'),

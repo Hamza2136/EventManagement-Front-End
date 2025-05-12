@@ -1,3 +1,6 @@
+// ignore_for_file: library_private_types_in_public_api, avoid_print
+
+
 import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
 
@@ -9,6 +12,7 @@ class EventListScreen extends StatefulWidget {
 }
 
 class _EventListScreenState extends State<EventListScreen> {
+  
   final List<Map<String, String>> events = [
     {
       "date": "Wed, Apr 28 - 5:30 PM",

@@ -35,6 +35,21 @@ dependencies:
   photo_view: ^0.15.0
   intl: ^0.20.1
   font_awesome_flutter: ^10.8.0
+  http: ^1.2.2
+  jwt_decoder: ^2.0.1
+  flutter_secure_storage: ^9.2.3
+  web_socket_channel: ^3.0.1
+  signalr_netcore: ^1.4.0
+  connectivity_plus: ^6.1.4
+  internet_connection_checker: ^3.0.1
+  geolocator: ^13.0.3
+  geolocator_android: 4.6.1
+  geocoding: ^3.0.0
+  image_picker: ^1.1.2
+  http_parser: ^4.0.2
+  shared_preferences: ^2.5.3
+  json_annotation: ^4.9.0
+  table_calendar: ^3.2.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -43,6 +58,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  build_runner: ^2.4.8
+  json_serializable: ^6.7.1
+  
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -64,16 +82,10 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - images/icon.png
     - images/logo.png
     - images/profile.jpg
     - images/noevent.png
     - images/logo@2x.png
-    - images/Icon@2x.png
-    - images/english_flag.png
-    - images/english_flag@2x.png
-    - images/arabic_flag.png
-    - images/arabic_flag@2x.png
     - images/walkthrough/bg1.jpeg
     - images/walkthrough/bg2.jpeg
     - images/walkthrough/bg3.jpeg

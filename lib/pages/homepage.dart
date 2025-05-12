@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
-import 'package:smart_event_frontend/pages/chat_screen.dart';
+import 'package:intl/intl.dart';
+import 'package:smart_event_frontend/models/event_model.dart';
 import 'package:smart_event_frontend/pages/event_details_page.dart';
 import 'package:smart_event_frontend/pages/events.dart';
-import 'package:smart_event_frontend/pages/notification.dart';
-import 'package:smart_event_frontend/pages/search_page.dart';
+import 'package:smart_event_frontend/pages/rsvp_event_details.dart';
 import 'package:smart_event_frontend/pages/shareApp.dart';
 import 'package:smart_event_frontend/pages/sidebar.dart';
-import 'package:smart_event_frontend/pages/profile.dart';
+import 'package:smart_event_frontend/services/event_service.dart';
+// import 'package:geocoding/geocoding.dart';
+// import 'package:geolocator/geolocator.dart';
+// import 'dart:developer';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,16 +22,73 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
+  List<String> selectedTags = [];
+  late Future<List<EventModel>> filteredEvents;
+
+  // Future<void> getCurrentLocation() async {
+  //   LocationPermission permission = await Geolocator.checkPermission();
+
+  //   if (permission == LocationPermission.denied ||
+  //       permission == LocationPermission.deniedForever) {
+  //     log("Location permission denied, requesting permission...");
+  //     permission = await Geolocator.requestPermission();
+  //     if (permission == LocationPermission.denied ||
+  //         permission == LocationPermission.deniedForever) {
+  //       log("Location permission still denied.");
+  //       return;
+  //     }
+  //   }
+
+  //   try {
+  //     Position currentPosition = await Geolocator.getCurrentPosition(
+  //       desiredAccuracy: LocationAccuracy.high,
+  //     );
+
+  //     double latitude = currentPosition.latitude;
+  //     double longitude = currentPosition.longitude;
+  //     // getCityFromCoordinates(48.8566, 2.3522);
+  //   } catch (e) {
+  //     log("Error getting location: $e");
+  //   }
+  // }
+
+// Future<void> getCityFromCoordinates(double latitude, double longitude) async {
+//   try {
+//     List<Placemark> placemarks = await placemarkFromCoordinates(latitude, longitude, localeIdentifier: "en");
+
+//     if (placemarks.isNotEmpty) {
+//       Placemark place = placemarks.first;
+
+//       String? city = place.locality ?? place.subAdministrativeArea ?? place.administrativeArea;
+//       log('City: $city');
+//     } else {
+//       log('No placemarks found');
+//     }
+//   } catch (e, stacktrace) {
+//     log('Error during reverse geocoding: $e');
+//     log('Stacktrace: $stacktrace');
+//   }
+// }
+  String formatDate(String rawDate) {
+    final dateTime = DateTime.parse(rawDate);
+    return DateFormat('EEE, MMM d yyyy - h:mm a').format(dateTime);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    filteredEvents = EventService().getAllUpcomingEvents();
+  }
+
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
-    // TextEditingController searchController = TextEditingController();
+
     return Scaffold(
       drawer: const CustomSidebar(),
       appBar: PreferredSize(
-        preferredSize:
-            Size.fromHeight(screenHeight * 0.19), // Adjust height here
+        preferredSize: Size.fromHeight(screenHeight * 0.19),
         child: AppBar(
           backgroundColor: HexColor("#4a43ec"),
           leading: Builder(builder: (context) {
@@ -49,12 +109,7 @@ class HomePageState extends State<HomePage> {
               padding: const EdgeInsets.only(right: 20.0),
               child: IconButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => NotificationsPage(),
-                    ),
-                  );
+                  Navigator.pushNamed(context, '/notifications');
                 },
                 icon: const Icon(
                   Icons.notifications,
@@ -63,6 +118,7 @@ class HomePageState extends State<HomePage> {
               ),
             ),
           ],
+          // Rest of the AppBar code remains the same
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(40),
@@ -107,12 +163,7 @@ class HomePageState extends State<HomePage> {
                     children: [
                       GestureDetector(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SearchScreen(),
-                            ),
-                          );
+                          Navigator.pushNamed(context, '/event_search');
                         },
                         child: Row(
                           children: [
@@ -124,12 +175,7 @@ class HomePageState extends State<HomePage> {
                                 weight: 3,
                               ),
                               onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => SearchScreen(),
-                                  ),
-                                );
+                                Navigator.pushNamed(context, '/event_search');
                               },
                             ),
                             const Text(
@@ -145,12 +191,7 @@ class HomePageState extends State<HomePage> {
                       ),
                       GestureDetector(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SearchScreen(),
-                            ),
-                          );
+                          Navigator.pushNamed(context, '/event_search');
                         },
                         child: Container(
                           height: screenHeight * 0.06,
@@ -176,12 +217,8 @@ class HomePageState extends State<HomePage> {
                                       size: 15,
                                     ),
                                     onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => SearchScreen(),
-                                        ),
-                                      );
+                                      Navigator.pushNamed(
+                                          context, '/event_search');
                                     },
                                   ),
                                 ),
@@ -210,7 +247,6 @@ class HomePageState extends State<HomePage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Category Chips Section
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -219,72 +255,40 @@ class HomePageState extends State<HomePage> {
                 categoryChip('Music', Colors.orange),
                 categoryChip('Food', Colors.green),
                 categoryChip('Art', HexColor("#4a43ec")),
-                categoryChip('Technology', Colors.purple),
-                categoryChip('Health', Colors.teal),
-                categoryChip('Fashion', Colors.pink),
-                categoryChip('Education', Colors.yellow),
-                categoryChip('Environment', Colors.lightGreen),
-                categoryChip('Movies', Colors.cyan),
-                categoryChip('Business', Colors.indigo),
-                categoryChip('Travel', Colors.brown),
-                categoryChip('Gaming', Colors.blueGrey),
-                categoryChip('Theater', Colors.redAccent),
-                categoryChip('Literature', Colors.amber),
-                categoryChip('Science', Colors.greenAccent),
-                categoryChip('Fitness', Colors.deepOrange),
-                categoryChip('Charity', Colors.lime),
-                categoryChip('Photography', Colors.deepPurple),
-                categoryChip('Dance', Colors.pinkAccent),
-                categoryChip('Comedy', Colors.lightBlue),
-                categoryChip('History', Colors.orangeAccent),
-                categoryChip('Family', Colors.black),
-                categoryChip('Spirituality', Colors.grey),
-                categoryChip('Crafts', Colors.yellowAccent),
-                categoryChip('Animals', Colors.indigoAccent),
-                categoryChip('Automobiles', Colors.blueGrey),
-                categoryChip('Adventure', Colors.lightGreenAccent),
-                categoryChip('Startup', Colors.purpleAccent),
-                categoryChip('Podcasts', HexColor("#4a43ec")),
-                categoryChip('Politics', Colors.red),
-                categoryChip('Nature', Colors.green),
-                categoryChip('Networking', Colors.tealAccent),
-                categoryChip('Social', Colors.purple),
+                // Other category chips
               ],
             ),
           ),
           SizedBox(height: screenHeight * 0.01),
+          sectionTitle('Upcoming Events', onSeeAll: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context)=>const Events()));
+          }),
+          SizedBox(height: screenHeight * 0.01),
+          FutureBuilder<List<EventModel>>(
+            future: filteredEvents,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('No events found.'));
+              }
 
-          // Upcoming Events Section
-          sectionTitle('Upcoming Events', onSeeAll: () {}),
-          SizedBox(height: screenHeight * 0.01),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                eventCard(
-                  context,
-                  date: '10 January',
-                  title: 'International Band Music Concert',
-                  attendees: '+20 Going',
-                  location: '36 Guild Street London, UK',
-                  imageUrl:
-                      'https://i.pinimg.com/736x/d5/da/e6/d5dae69e5b38ec26b49dbb4bee613e58.jpg',
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: snapshot.data!.map((event) {
+                    return Padding(
+                      padding: EdgeInsets.only(right: screenWidth * 0.01),
+                      child: eventCard(context, event: event),
+                    );
+                  }).toList(),
                 ),
-                SizedBox(
-                  width: screenWidth * 0.01,
-                ),
-                eventCard(
-                  context,
-                  date: '10 JUNE',
-                  title: 'Jo Malone London’s Mother’s Day',
-                  attendees: '+15 Going',
-                  location: 'Radius Gallery, London',
-                  imageUrl:
-                      'https://d3jmn01ri1fzgl.cloudfront.net/photoadking/webp_thumbnail/vintage-car-show-event-flyer-template-kexu4od3c842fd.webp',
-                ),
-              ],
-            ),
+              );
+            },
           ),
+
           SizedBox(
             height: screenHeight * 0.01,
           ),
@@ -325,7 +329,7 @@ class HomePageState extends State<HomePage> {
                       ),
                       builder: (context) => SizedBox(
                         height: screenHeight * 0.5,
-                        child: ShareApp(),
+                        child: const ShareApp(),
                       ),
                     );
                   },
@@ -341,156 +345,76 @@ class HomePageState extends State<HomePage> {
               ],
             ),
           ),
-          SizedBox(
-            height: screenHeight * 0.01,
-          ),
-          sectionTitle('Nearby You', onSeeAll: () {}),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                eventCard(
-                  context,
-                  date: '10 JUNE',
-                  title: 'International Band Music Concert',
-                  attendees: '+20 Going',
-                  location: '36 Guild Street London, UK',
-                  imageUrl:
-                      'https://i.pinimg.com/736x/d5/da/e6/d5dae69e5b38ec26b49dbb4bee613e58.jpg',
+          SizedBox(height: screenHeight * 0.01),
+          sectionTitle('Nearby You', onSeeAll: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context)=>const Events()));
+          }),
+          SizedBox(height: screenHeight * 0.01),
+          FutureBuilder<List<EventModel>>(
+            future: filteredEvents,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('No events found.'));
+              }
+
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: snapshot.data!.map((event) {
+                    return Padding(
+                      padding: EdgeInsets.only(right: screenWidth * 0.01),
+                      child: eventCard(context, event: event),
+                    );
+                  }).toList(),
                 ),
-                SizedBox(
-                  width: screenWidth * 0.01,
-                ), // Add spacing between cards
-                eventCard(
-                  context,
-                  date: '10 JUNE',
-                  title: 'Jo Malone London’s Mother’s Day',
-                  attendees: '+15 Going',
-                  location: 'Radius Gallery, London',
-                  imageUrl:
-                      'https://d3jmn01ri1fzgl.cloudfront.net/photoadking/webp_thumbnail/vintage-car-show-event-flyer-template-kexu4od3c842fd.webp',
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),
-      floatingActionButton: SizedBox(
-        height: 50, // Decrease size of the button
-        width: 50,
-        child: FloatingActionButton(
-          onPressed: () {},
-          backgroundColor: HexColor("#4a43ec"),
-          foregroundColor: Colors.white,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add, size: 24),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: SizedBox(
-        height: screenHeight * 0.140, // Set the height of the BottomAppBar
-        child: BottomAppBar(
-          color: Colors.grey[300],
-          shape: const CircularNotchedRectangle(),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                children: [
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.explore),
-                    color: HexColor("#4a43ec"),
-                    iconSize: 30,
-                  ),
-                  Text(
-                    'Explore',
-                    style: TextStyle(fontSize: 12, color: HexColor("#4a43ec")),
-                  ),
-                ],
-              ),
-              Column(
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const Events(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.event),
-                    color: Colors.grey,
-                    iconSize: 30,
-                  ),
-                  const Text(
-                    'Events',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-              Column(
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.map),
-                    color: Colors.grey,
-                    iconSize: 30,
-                  ),
-                  const Text(
-                    'Map',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-              Column(
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProfilePage(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.person),
-                    color: Colors.grey,
-                    iconSize: 30,
-                  ),
-                  const Text(
-                    'Profile',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+      // Remove bottom navigation bar from here as it's now handled by MainScreen
     );
   }
 
+  // Utility methods remain the same
   Widget categoryChip(String label, Color color) {
+    final isSelected = selectedTags.contains(label);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(40),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            if (isSelected) {
+              selectedTags.remove(label);
+            } else {
+              selectedTags.add(label);
+            }
+
+            if (selectedTags.isEmpty) {
+              filteredEvents = EventService().getAllUpcomingEvents();
+            } else {
+              filteredEvents = EventService().getEventsByTags(selectedTags);
+            }
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? color : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(40),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.black,
+              fontSize: 14,
+            ),
+          ),
         ),
       ),
     );
@@ -512,24 +436,20 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  Widget eventCard(BuildContext context,
-      {required String date,
-      required String title,
-      required String attendees,
-      required String location,
-      required String imageUrl}) {
+  Widget eventCard(BuildContext context, {required EventModel event}) {
     double screenWidth = MediaQuery.of(context).size.width;
+    double screenHeight = MediaQuery.of(context).size.height;
+
+    DateTime parsedDate = DateTime.parse(event.date);
+    String formattedDate = DateFormat('EEE, MMM d - h:mm a').format(parsedDate);
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => EventDetails(
-              title: title,
-              imageUrl: imageUrl,
-              location: location,
-              date: date,
-              attendees: attendees,
+              event: event,
             ),
           ),
         );
@@ -537,7 +457,8 @@ class HomePageState extends State<HomePage> {
       child: Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: SizedBox(
-          width: screenWidth * 0.7, // Set card width relative to the screen
+          width: screenWidth * 0.7,
+          height: screenHeight * 0.50,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -545,13 +466,13 @@ class HomePageState extends State<HomePage> {
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(12)),
                 child: Image.network(
-                  imageUrl,
+                  event.imageUrl,
                   height: 200,
                   width: double.infinity,
                   fit: BoxFit.fill,
                   errorBuilder: (context, error, stackTrace) {
                     return const SizedBox(
-                      height: 150,
+                      height: 200,
                       child: Center(
                         child: Icon(
                           Icons.broken_image,
@@ -569,37 +490,34 @@ class HomePageState extends State<HomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      date,
+                      formattedDate,
                       style: TextStyle(
                           color: HexColor("#4a43ec"),
                           fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      title,
+                      event.title,
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
+                    
                     Row(
-                      children: [
-                        const CircleAvatar(
-                            radius: 12, backgroundColor: Colors.blueAccent),
-                        const SizedBox(width: 4),
-                        const CircleAvatar(
-                            radius: 12, backgroundColor: Colors.redAccent),
-                        const SizedBox(width: 8),
-                        Text(attendees),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.location_on,
                             size: 16, color: Colors.grey),
                         const SizedBox(width: 4),
-                        Text(location,
-                            style: const TextStyle(color: Colors.grey)),
+                        Expanded(
+                          child: Text(
+                            event.location,
+                            style: const TextStyle(color: Colors.grey),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                            softWrap: true,
+                          ),
+                        ),
                       ],
                     ),
                   ],

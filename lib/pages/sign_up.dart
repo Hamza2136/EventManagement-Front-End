@@ -1,8 +1,9 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
-import 'package:smart_event_frontend/pages/email_verification.dart';
+import 'package:smart_event_frontend/pages/login.dart';
+import 'package:smart_event_frontend/services/auth_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
@@ -14,12 +15,53 @@ class SignUp extends StatefulWidget {
 }
 
 class _SignUpState extends State<SignUp> {
-  TextEditingController nameController = TextEditingController();
+  TextEditingController usernameController = TextEditingController();
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   Color myColor = HexColor('#5669ff');
   final _formkey = GlobalKey<FormState>();
   bool _obscureText = true;
+  final AuthService _authService = AuthService();
+
+  // Add variables for image and selected role
+  File? _profileImage;
+  String _selectedRole = 'User';
+
+  Future<void> _signup(
+      String usernameText,
+      String emailText,
+      String passText,
+      File? profilePicture, // Added profilePicture parameter
+      String role // Added role parameter
+      ) async {
+    final username = usernameText;
+    final email = emailText;
+    final password = passText;
+
+    final success = await _authService.signup(
+        username, email, password, profilePicture!, role);
+    if (success) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const Login()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Signup failed. Try again.')),
+      );
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _profileImage = File(pickedFile.path);
+      });
+    }
+  }
 
   TextStyle fieldStyle = const TextStyle(
     fontFamily: 'Montserrat',
@@ -31,6 +73,7 @@ class _SignUpState extends State<SignUp> {
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -59,14 +102,14 @@ class _SignUpState extends State<SignUp> {
                 SizedBox(
                   width: screenWidth * 0.9,
                   child: TextFormField(
-                    controller: nameController,
+                    controller: usernameController,
                     validator: (value) => value != null && value.isEmpty
-                        ? 'Name is Required'
+                        ? 'Username is Required'
                         : null,
                     decoration: InputDecoration(
-                      labelText: 'Name', // Changed label to labelText
+                      labelText: 'Username',
                       labelStyle: fieldStyle,
-                      hintText: 'Enter Your Name...',
+                      hintText: 'Enter Your Username...',
                       hintStyle: fieldStyle,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(5.0),
@@ -86,7 +129,7 @@ class _SignUpState extends State<SignUp> {
                         ? 'Email is Required'
                         : null,
                     decoration: InputDecoration(
-                      labelText: 'Email', // Changed label to labelText
+                      labelText: 'Email',
                       labelStyle: fieldStyle,
                       hintText: 'Enter Your Email...',
                       hintStyle: fieldStyle,
@@ -133,21 +176,73 @@ class _SignUpState extends State<SignUp> {
                 SizedBox(
                   height: screenHeight * 0.02,
                 ),
+                // Role Dropdown
+                SizedBox(
+                  width: screenWidth * 0.9,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedRole,
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedRole = newValue!;
+                      });
+                    },
+                    items: <String>['User', 'Organizer']
+                        .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    decoration: InputDecoration(
+                      labelText: 'Select Role',
+                      labelStyle: fieldStyle,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(5.0),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: screenHeight * 0.02,
+                ),
+                // Image Picker Button
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    height: 100,
+                    width: 100,
+                    decoration: BoxDecoration(
+                      color: HexColor('#f0f0f0'),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: myColor),
+                    ),
+                    child: _profileImage == null
+                        ? Icon(Icons.camera_alt, color: myColor)
+                        : Image.file(_profileImage!),
+                  ),
+                ),
+                SizedBox(
+                  height: screenHeight * 0.02,
+                ),
+                // Sign Up Button
                 SizedBox(
                   width: screenWidth * 0.9,
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       if (_formkey.currentState!.validate()) {
-                        String name = nameController.text;
+                        String username = usernameController.text;
                         String email = emailController.text;
                         String password = passwordController.text;
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const VerifyEmail(),
-                          ),
-                        );
-                        // signup(context, name, email, password);
+
+                        // Use _profileImage instead of _profilePicture
+                        File? profilePicture =
+                            _profileImage; // Corrected variable name
+                        String role =
+                            _selectedRole; // Reference the selected role
+
+                        // Call the signup function with the required parameters
+                        await _signup(
+                            username, email, password, profilePicture, role);
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -190,28 +285,4 @@ class _SignUpState extends State<SignUp> {
       ),
     );
   }
-
-  // Future<void> signup(
-  //     BuildContext context, String name, String email, String password) async {
-  //   try {
-  //     var response = await http.post(
-  //       Uri.parse('$url/Accounts/create'),
-  //       body: jsonEncode({'Name': name, 'Email': email, 'Password': password}),
-  //       headers: {'Content-Type': 'application/json'},
-  //     );
-  //     if (response.statusCode == 201) {
-  //       debugPrint('user created successfully');
-  //       Navigator.push(
-  //         context,
-  //         MaterialPageRoute(
-  //           builder: (context) => const Signin(),
-  //         ),
-  //       );
-  //     } else {
-  //       debugPrint('Failed to create user: ${response.statusCode}');
-  //     }
-  //   } catch (e) {
-  //     debugPrint('$e');
-  //   }
-  // }
 }

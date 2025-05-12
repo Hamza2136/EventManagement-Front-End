@@ -1,12 +1,15 @@
-// ignore_for_file: use_build_context_synchronously, unused_local_variable
+// ignore_for_file: use_build_context_synchronously, unused_local_variable, deprecated_member_use
 
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
+import 'package:smart_event_frontend/models/user_model.dart';
 import 'package:smart_event_frontend/pages/forgot_password.dart';
-import 'package:smart_event_frontend/pages/homepage.dart';
+import 'package:smart_event_frontend/pages/main_screen.dart';
 import 'package:smart_event_frontend/pages/sign_up.dart';
+import 'package:smart_event_frontend/services/auth_service.dart';
+import 'package:smart_event_frontend/services/user_storage_service.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -18,6 +21,47 @@ class Login extends StatefulWidget {
 }
 
 class LoginState extends State<Login> {
+  TextEditingController emailController = TextEditingController();
+  TextEditingController passwordController = TextEditingController();
+  Color myColor = HexColor('#5669ff');
+  bool _obscureText = true;
+  final _formkey = GlobalKey<FormState>();
+  String? userNotFoundError;
+  String? incorrectPasswordError;
+
+  final AuthService _authService = AuthService();
+
+  Future<void> _login(String emailText, String passwordText) async {
+    final email = emailText;
+    final password = passwordText;
+
+    final response = await _authService.login(email, password);
+    if (response != null) {
+      if (response['token'] != null) {
+        await _authService.storeToken(response['token']);
+        await _authService.storeRole(response['role']);
+        final user = UserModel.fromJson(response['data']);
+        await UserStorageService().storeUser(user);
+
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) =>  const MainScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text(response['message'] ?? 'Invalid login credentials')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login failed. Please try again later.')),
+      );
+    }
+  }
+
   void goToPage(BuildContext context, pageName) {
     Navigator.push(
       context,
@@ -27,22 +71,13 @@ class LoginState extends State<Login> {
     );
   }
 
-  int userid = 0;
-  TextEditingController emailController = TextEditingController();
-  TextEditingController passwordController = TextEditingController();
-  Color myColor = HexColor('#5669ff');
-  bool _obscureText = true;
-  final _formkey = GlobalKey<FormState>();
-  String? userNotFoundError;
-  String? incorrectPasswordError;
-
   TextStyle fieldStyle = const TextStyle(
     fontFamily: 'Montserrat',
     fontWeight: FontWeight.w400,
     fontSize: 14,
   );
+
   Future<bool> _onWillPop() async {
-    // Show a dialog to confirm exit or return true to allow back navigation.
     return await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -68,6 +103,7 @@ class LoginState extends State<Login> {
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -80,13 +116,9 @@ class LoginState extends State<Login> {
               key: _formkey,
               child: Column(
                 children: [
-                  SizedBox(
-                    height: screenHeight * 0.07,
-                  ),
+                  SizedBox(height: screenHeight * 0.07),
                   Image.asset('images/logo.png'),
-                  SizedBox(
-                    height: screenHeight * 0.05,
-                  ),
+                  SizedBox(height: screenHeight * 0.05),
                   SizedBox(
                     width: screenWidth * 0.9,
                     child: TextFormField(
@@ -107,11 +139,9 @@ class LoginState extends State<Login> {
                       style: fieldStyle,
                     ),
                   ),
+                  SizedBox(height: screenHeight * 0.05),
                   SizedBox(
-                    height: screenHeight * 0.05,
-                  ),
-                  SizedBox(
-                    width: screenWidth * 0.9, // Set the desired width
+                    width: screenWidth * 0.9,
                     child: TextFormField(
                       controller: passwordController,
                       validator: (value) => value != null && value.isEmpty
@@ -141,9 +171,7 @@ class LoginState extends State<Login> {
                       style: fieldStyle,
                     ),
                   ),
-                  SizedBox(
-                    height: screenHeight * 0.05,
-                  ),
+                  SizedBox(height: screenHeight * 0.05),
                   SizedBox(
                     width: screenWidth * 0.9,
                     child: ElevatedButton(
@@ -151,8 +179,7 @@ class LoginState extends State<Login> {
                         if (_formkey.currentState!.validate()) {
                           String email = emailController.text;
                           String password = passwordController.text;
-                          // login(context, email, password);
-                          goToPage(context, const HomePage());
+                          _login(email, password);
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -181,8 +208,6 @@ class LoginState extends State<Login> {
                       'Forgot your password?',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        // decoration: TextDecoration.underline,
-                        // decorationColor: HexColor('#1A237E'),
                         color: HexColor('#5669ff'),
                         fontFamily: 'Montserrat',
                         fontSize: 14,
@@ -190,9 +215,7 @@ class LoginState extends State<Login> {
                       ),
                     ),
                   ),
-                  SizedBox(
-                    height: screenHeight * 0.07,
-                  ),
+                  SizedBox(height: screenHeight * 0.07),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -230,32 +253,4 @@ class LoginState extends State<Login> {
       ),
     );
   }
-
-  // Future<void> login(
-  //     BuildContext context, String email, String password) async {
-  //   userNotFoundError = null;
-  //   incorrectPasswordError = null;
-  //   try {
-  //     var response = await http.get(
-  //       Uri.parse('$url/Accounts/email/$email'),
-  //     );
-  //     if (response.statusCode == 200) {
-  //       var userData = jsonDecode(response.body);
-  //       userid = userData['UserId'];
-  //       if (userData['Password'] == password) {
-  //         goToPage(context, Home(userId: userid));
-  //       } else {
-  //         setState(() {
-  //           incorrectPasswordError = "Password is incorrect";
-  //         });
-  //       }
-  //     } else {
-  //       setState(() {
-  //         userNotFoundError = "User not found Please Register";
-  //       });
-  //     }
-  //   } catch (e) {
-  //     debugPrint('$e');
-  //   }
-  // }
 }

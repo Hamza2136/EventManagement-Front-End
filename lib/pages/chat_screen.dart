@@ -1,74 +1,119 @@
+// // ignore_for_file: library_private_types_in_public_api, avoid_print
+
+// import 'dart:async';
 // import 'package:flutter/material.dart';
-// // import 'package:secure_chat_flutter/services/signalr_service.dart';
-// // import 'package:secure_chat_flutter/services/token_service.dart';
+// import 'package:hexcolor/hexcolor.dart';
+// import '../services/chat_service.dart';
 
 // class ChatScreen extends StatefulWidget {
+//   final String receiverId;
+//   final String receiverName;
+
+//   const ChatScreen({super.key, required this.receiverId, required this.receiverName});
+
 //   @override
 //   _ChatScreenState createState() => _ChatScreenState();
 // }
 
 // class _ChatScreenState extends State<ChatScreen> {
+//   final ChatService _chatService = ChatService();
 //   final TextEditingController _messageController = TextEditingController();
-//   final List<Map<String, String>> _messages = [];
-//   final List<String> _systemMessages = [];
-//   late int? userId;
+//   final ScrollController _scrollController = ScrollController();
+//   List<dynamic> _messages = [];
+//   String? _lastSentMessage;
 
-//   // @override
-//   // void initState() {
-//   //   super.initState();
+//   @override
+//   void initState() {
+//     super.initState();
+//     _initializeChat();
+//   }
 
-//   //   // Initialize SignalR connection and listen for incoming messages
-//   //   SignalRService.listenForMessages((user, message) {
-//   //     setState(() {
-//   //       if (user == 'System') {
-//   //         _systemMessages.add(message);
-//   //       } else {
-//   //         if (int.parse(user) != userId) {
-//   //           _messages.add({'user': user, 'message': message});
-//   //         }
-//   //       }
-//   //     });
-//   //   });
+//   @override
+//   void dispose() {
+//     _chatService.stopListening();
+//     super.dispose();
+//   }
 
-//   //   getUserId();
-//   // }
+//   void _initializeChat() async {
+//     await _chatService.initialize();
+//     _loadMessages();
+//     _listenForIncomingMessages();
+//   }
 
-//   // void getUserId() async {
-//   //   String? userIdFromToken = await TokenService.getUserIdFromToken();
-//   //   if (userIdFromToken != null) {
-//   //     setState(() {
-//   //       userId = int.parse(userIdFromToken);
-//   //     });
-//   //   } else {
-//   //     print("No User ID found in token, token is missing, or token has expired.");
-//   //   }
-//   // }
+//   void _listenForIncomingMessages() {
+//     _chatService.listenForMessages((message) {
+//       // Only add the message if it's not the one you just sent
+//       if (message != _lastSentMessage) {
+//         setState(() {
+//           _messages.add({
+//             'text': message,
+//             'isCurrentUserSentMessage': false,
+//             'time': TimeOfDay.now().format(context),
+//           });
+//         });
+//         _scrollToBottom();
+//       }
+//     });
+//   }
 
-//   // void _sendMessage() {
-//   //   if (userId == null) {
-//   //     ScaffoldMessenger.of(context).showSnackBar(
-//   //       const SnackBar(content: Text('Unable to retrieve user ID from token!')),
-//   //     );
-//   //     return;
-//   //   }
+//   void _loadMessages() async {
+//     // Fetch initial messages
+//     try {
+//       final response = await _chatService.getMessages(widget.receiverId);
+//       final messages = response['messages'];
+//       setState(() {
+//         _messages = messages.map((message) {
+//           final isCurrentUserSentMessage = message['isCurrentUserSentMessage'];
+//           final time = message['time'];
+//           return {
+//             'text': message['text'],
+//             'isCurrentUserSentMessage': isCurrentUserSentMessage,
+//             'time': time,
+//           };
+//         }).toList();
+//       });
+//       _scrollToBottom();
+//     } catch (e) {
+//       print("Error loading messages: $e");
+//     }
+//   }
 
-//   //   if (_messageController.text.isNotEmpty) {
-//   //     SignalRService.sendMessage(userId.toString(), _messageController.text);
-//   //     setState(() {
-//   //       _messages.add({'user': userId.toString(), 'message': _messageController.text});
-//   //     });
-//   //     _messageController.clear();
-//   //   }
-//   // }
+//   void _sendMessage() async {
+//     final message = _messageController.text;
+//     if (message.isNotEmpty) {
+//       // Add the message immediately to your local list
+//       setState(() {
+//         _messages.add({
+//           'text': message,
+//           'isCurrentUserSentMessage': true,
+//           'time': TimeOfDay.now().format(context),
+//         });
+//         _lastSentMessage = message; // Track the last sent message
+//       });
+//       _messageController.clear();
+//       _scrollToBottom();
 
-//   Widget _buildMessageBubble(String message, bool isMyMessage) {
+//       // Send the message to the server
+//       await _chatService.sendMessage(widget.receiverId, message);
+//     }
+//   }
+
+//   void _scrollToBottom() {
+//     Future.delayed(const Duration(milliseconds: 100), () {
+//       if (_scrollController.hasClients) {
+//         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+//       }
+//     });
+//   }
+
+//   Widget _buildMessageBubble(String message, bool isMyMessage, String time) {
 //     return Align(
 //       alignment: isMyMessage ? Alignment.centerRight : Alignment.centerLeft,
 //       child: Container(
 //         margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
 //         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
 //         decoration: BoxDecoration(
-//           color: isMyMessage ? Colors.blueAccent : Colors.grey[300],
+//           color: isMyMessage ? HexColor("#4a43ec") : Colors.grey[300],
 //           borderRadius: BorderRadius.only(
 //             topLeft: const Radius.circular(15),
 //             topRight: const Radius.circular(15),
@@ -76,29 +121,25 @@
 //             bottomRight: isMyMessage ? Radius.zero : const Radius.circular(15),
 //           ),
 //         ),
-//         child: Text(
-//           message,
-//           style: TextStyle(
-//             color: isMyMessage ? Colors.white : Colors.black87,
-//             fontSize: 16,
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildSystemMessage(String message) {
-//     return Container(
-//       width: double.infinity,
-//       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-//       color: Colors.amber[100],
-//       child: Text(
-//         message,
-//         textAlign: TextAlign.center,
-//         style: const TextStyle(
-//           color: Colors.black87,
-//           fontSize: 14,
-//           fontStyle: FontStyle.italic,
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             Text(
+//               message,
+//               style: TextStyle(
+//                 color: isMyMessage ? Colors.white : Colors.black87,
+//                 fontSize: 16,
+//               ),
+//             ),
+//             const SizedBox(height: 5),
+//             Text(
+//               time,
+//               style: TextStyle(
+//                 color: isMyMessage ? Colors.white70 : Colors.black54,
+//                 fontSize: 12,
+//               ),
+//             ),
+//           ],
 //         ),
 //       ),
 //     );
@@ -108,35 +149,28 @@
 //   Widget build(BuildContext context) {
 //     return Scaffold(
 //       appBar: AppBar(
-//         title: const Text('Chat Room'),
-//         actions: [
-//           IconButton(
-//             icon: const Icon(Icons.logout),
-//             onPressed: () {
-//               Navigator.pushReplacementNamed(context, '/login');
-//             },
-//           ),
-//         ],
+//         backgroundColor: HexColor("#4a43ec"),
+//         title: Text(widget.receiverName,
+//             style: const TextStyle(color: Colors.white)),
+//         leading: IconButton(
+//           icon: const Icon(Icons.arrow_back, color: Colors.white),
+//           onPressed: () {
+//             Navigator.pop(context);
+//           },
+//         ),
 //       ),
 //       body: Column(
 //         children: [
-//           if (_systemMessages.isNotEmpty)
-//             Container(
-//               color: Colors.amber[50],
-//               child: Column(
-//                 children: _systemMessages
-//                     .map((message) => _buildSystemMessage(message))
-//                     .toList(),
-//               ),
-//             ),
 //           Expanded(
 //             child: ListView.builder(
+//               controller: _scrollController,
 //               itemCount: _messages.length,
-//               reverse: true,
 //               itemBuilder: (context, index) {
-//                 final message = _messages[_messages.length - 1 - index];
-//                 final isMyMessage = message['user'] == userId.toString();
-//                 return _buildMessageBubble(message['message']!, isMyMessage);
+//                 final message = _messages[index];
+//                 final isMyMessage =
+//                     message['isCurrentUserSentMessage'] ?? false;
+//                 final time = message['time'];
+//                 return _buildMessageBubble(message['text'], isMyMessage, time);
 //               },
 //             ),
 //           ),
@@ -152,20 +186,16 @@
 //                       border: OutlineInputBorder(
 //                         borderRadius: BorderRadius.circular(20),
 //                       ),
-//                       contentPadding: const EdgeInsets.symmetric(
-//                         vertical: 10,
-//                         horizontal: 15,
-//                       ),
 //                     ),
 //                   ),
 //                 ),
 //                 const SizedBox(width: 8),
 //                 GestureDetector(
-//                   // onTap: _sendMessage,
-//                   child: const CircleAvatar(
+//                   onTap: _sendMessage,
+//                   child: CircleAvatar(
 //                     radius: 25,
-//                     child: Icon(Icons.send, color: Colors.white),
-//                     backgroundColor: Colors.blueAccent,
+//                     backgroundColor: HexColor("#4a43ec"),
+//                     child: const Icon(Icons.send, color: Colors.white),
 //                   ),
 //                 ),
 //               ],
@@ -176,50 +206,164 @@
 //     );
 //   }
 // }
+
+// ignore_for_file: library_private_types_in_public_api, avoid_print
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
+import 'package:intl/intl.dart';
+import '../services/chat_service.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final String receiverId;
+  final String receiverName;
+
+  const ChatScreen({
+    super.key,
+    required this.receiverId,
+    required this.receiverName,
+  });
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final ChatService _chatService = ChatService();
   final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, String>> _messages = [];
-  int messageCount = 0;
+  final ScrollController _scrollController = ScrollController();
+  List<Map<String, dynamic>> _messages = [];
+  String? _lastSentMessage;
 
-  void _sendMessage() {
-    if (_messageController.text.isNotEmpty) {
+  @override
+  void initState() {
+    super.initState();
+    _initializeChat();
+  }
+
+  @override
+  void dispose() {
+    _chatService.stopListening();
+    super.dispose();
+  }
+
+  void _initializeChat() async {
+    await _chatService.initialize();
+    _loadMessages();
+    _listenForIncomingMessages();
+  }
+
+  void _listenForIncomingMessages() {
+    _chatService.listenForMessages((message) {
+      if (message != _lastSentMessage) {
+        setState(() {
+          _messages.add({
+            'text': message,
+            'isCurrentUserSentMessage': false,
+            'date': DateFormat('dd/MM/yyyy').format(DateTime.now()),
+            'time': TimeOfDay.now().format(context),
+          });
+        });
+        _scrollToBottom();
+      }
+    });
+  }
+
+  void _loadMessages() async {
+    try {
+      final response = await _chatService.getMessages(widget.receiverId);
+      final messages = response['messages'] as List<dynamic>;
+
       setState(() {
-        // Add user message
-        _messages.add({'user': 'Me', 'message': _messageController.text});
-        messageCount++;
+        _messages = messages.map<Map<String, dynamic>>((message) {
+          return {
+            'text': message['text'],
+            'isCurrentUserSentMessage': message['isCurrentUserSentMessage'],
+            'date': message['date'],
+            'time': message['time'],
+          };
+        }).toList();
 
-        // Add automatic reply
-        if (messageCount == 1) {
-          _messages.add({'user': 'Bot', 'message': 'Hello'});
-        } else if (messageCount == 2) {
-          _messages
-              .add({'user': 'Bot', 'message': 'I am fine, what about you?'});
-        } else if (messageCount == 3) {
-          _messages.add({'user': 'Bot', 'message': 'Ok, Good Bye!'});
-        }
+        _messages.sort((a, b) {
+          final dateA = DateFormat('dd/MM/yyyy hh:mm a')
+              .parse('${a['date']} ${a['time']}'.toUpperCase());
+          final dateB = DateFormat('dd/MM/yyyy hh:mm a')
+              .parse('${b['date']} ${b['time']}'.toUpperCase());
+          return dateA.compareTo(dateB);
+        });
       });
-      _messageController.clear();
+
+      _scrollToBottom();
+    } catch (e) {
+      print("Error loading messages: $e");
     }
   }
 
-  Widget _buildMessageBubble(String message, bool isMyMessage) {
+  void _sendMessage() async {
+    final message = _messageController.text;
+    if (message.isNotEmpty) {
+      final now = DateTime.now();
+      final dateStr = DateFormat('dd/MM/yyyy').format(now);
+      final timeStr = TimeOfDay.now().format(context);
+
+      setState(() {
+        _messages.add({
+          'text': message,
+          'isCurrentUserSentMessage': true,
+          'date': dateStr,
+          'time': timeStr,
+        });
+        _lastSentMessage = message;
+      });
+
+      _messageController.clear();
+      _scrollToBottom();
+
+      await _chatService.sendMessage(widget.receiverId, message);
+    }
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
+  Widget _buildDateSeparator(String dateStr) {
+    final parsedDate = DateFormat('dd/MM/yyyy').parse(dateStr);
+    final displayDate = DateFormat('dd-MMM-yyyy').format(parsedDate);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          const Expanded(child: Divider(thickness: 1)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              displayDate,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          const Expanded(child: Divider(thickness: 1)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(String message, bool isMyMessage, String time) {
     return Align(
       alignment: isMyMessage ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
         decoration: BoxDecoration(
-          color: isMyMessage ? Colors.blueAccent : Colors.grey[300],
+          color: isMyMessage ? HexColor("#4a43ec") : Colors.grey[300],
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(15),
             topRight: const Radius.circular(15),
@@ -227,12 +371,25 @@ class _ChatScreenState extends State<ChatScreen> {
             bottomRight: isMyMessage ? Radius.zero : const Radius.circular(15),
           ),
         ),
-        child: Text(
-          message,
-          style: TextStyle(
-            color: isMyMessage ? Colors.white : Colors.black87,
-            fontSize: 16,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: TextStyle(
+                color: isMyMessage ? Colors.white : Colors.black87,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              time,
+              style: TextStyle(
+                color: isMyMessage ? Colors.white70 : Colors.black54,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -240,38 +397,45 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    String? lastDate;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: HexColor("#4a43ec"),
+        title: Text(widget.receiverName,
+            style: const TextStyle(color: Colors.white)),
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            color: Colors.white,
-            size: 30,
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: const Text(
-          "Chat Room",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-            fontSize: 22,
-          ),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Column(
         children: [
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               itemCount: _messages.length,
-              reverse: true,
               itemBuilder: (context, index) {
-                final message = _messages[_messages.length - 1 - index];
-                final isMyMessage = message['user'] == 'Me';
-                return _buildMessageBubble(message['message']!, isMyMessage);
+                final message = _messages[index];
+                final isMyMessage =
+                    message['isCurrentUserSentMessage'] ?? false;
+                final time = message['time'];
+                final date = message['date'];
+
+                List<Widget> messageWidgets = [];
+
+                if (lastDate != date) {
+                  messageWidgets.add(_buildDateSeparator(date));
+                  lastDate = date;
+                }
+
+                messageWidgets.add(
+                    _buildMessageBubble(message['text'], isMyMessage, time));
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: messageWidgets,
+                );
               },
             ),
           ),
@@ -287,10 +451,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 10,
-                        horizontal: 15,
-                      ),
                     ),
                   ),
                 ),
@@ -300,10 +460,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: CircleAvatar(
                     radius: 25,
                     backgroundColor: HexColor("#4a43ec"),
-                    child: const Icon(
-                      Icons.send,
-                      color: Colors.white,
-                    ),
+                    child: const Icon(Icons.send, color: Colors.white),
                   ),
                 ),
               ],

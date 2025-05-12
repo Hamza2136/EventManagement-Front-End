@@ -1,63 +1,86 @@
-import 'package:flutter/material.dart';
-import 'package:hexcolor/hexcolor.dart';
+import 'dart:convert';
 
-class NotificationsPage extends StatelessWidget {
-  final List<Map<String, dynamic>> notifications = [
-    {
-      'name': 'David Silbia',
-      'message': "Invite Jo Malone London’s Mother’s",
-      'time': 'Just now',
-      'hasAction': true,
-      'image': 'images/profile.jpg',
-    },
-    {
-      'name': 'Adnan Safi',
-      'message': "Started following you",
-      'time': '5 min ago',
-      'hasAction': false,
-      'image': 'images/profile.jpg',
-    },
-    {
-      'name': 'Joan Baker',
-      'message': "Invite A virtual Evening of Smooth Jazz",
-      'time': '20 min ago',
-      'hasAction': true,
-      'image': 'images/profile.jpg',
-    },
-    {
-      'name': 'Ronald C. Kinch',
-      'message': "Like your events",
-      'time': '1 hr ago',
-      'hasAction': false,
-      'image': 'images/profile.jpg',
-    },
-    {
-      'name': 'Clara Tolson',
-      'message': "Join your Event Gala Music Festival",
-      'time': '9 hr ago',
-      'hasAction': false,
-      'image': 'images/profile.jpg',
-    },
-    {
-      'name': 'Jennifer Fritz',
-      'message': "Invite you International Kids Safe",
-      'time': 'Tue, 5:10 pm',
-      'hasAction': true,
-      'image': 'images/profile.jpg',
-    },
-    {
-      'name': 'Eric G. Prickett',
-      'message': "Started following you",
-      'time': 'Wed, 3:30 pm',
-      'hasAction': false,
-      'image': 'images/profile.jpg',
-    },
-  ];
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hexcolor/hexcolor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smart_event_frontend/models/event_model.dart';
+import 'package:smart_event_frontend/pages/event_details_page.dart';
+import 'package:smart_event_frontend/pages/others_profile.dart';
+import 'package:smart_event_frontend/services/notification_service.dart';
+
+class NotificationsPage extends StatefulWidget {
+  const NotificationsPage({super.key});
+
+  @override
+  State<StatefulWidget> createState() {
+    return NotificationsPageState();
+  }
+}
+
+class NotificationsPageState extends State<NotificationsPage> {
+  final storage = const FlutterSecureStorage();
+  String currentUserId = "";
+  final NotificationService _notificationService = NotificationService();
+  List<Map<String, dynamic>> notifications = [];
+  bool isLoading = true;
+  bool hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchNotifications();
+  }
+
+  Future<void> fetchNotifications() async {
+    try {
+      List response = await _notificationService.getNotifications();
+
+      setState(() {
+        notifications = response.map((notif) {
+          return {
+            'notificationId': notif['id'],
+            'message': notif['message'],
+            'senderId': notif['fromUserId'],
+            "senderName": notif['fromUserName'],
+            'profilePicture': base64Decode(notif['fromUserProfilePicture']),
+            'time': _formatTimestamp(notif['createdAt']),
+            'hasAction': notif['type'] == "EventInvite" ||
+                notif['type'] == "EventCreation",
+            'type': notif['type'],
+            'isRead': notif['isRead'],
+            'event': notif['event']
+          };
+        }).toList();
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        hasError = true;
+        isLoading = false;
+      });
+    }
+  }
+
+  String _formatTimestamp(String timestamp) {
+    DateTime dateTime = DateTime.parse(timestamp);
+    Duration difference = DateTime.now().difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return "Just now";
+    } else if (difference.inMinutes < 60) {
+      return "${difference.inMinutes} min ago";
+    } else if (difference.inHours < 24) {
+      return "${difference.inHours} hr ago";
+    } else {
+      return dateTime.toLocal().toString().split(' ')[0];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double screenHeight = MediaQuery.of(context).size.height;
+    // double screenWidth = MediaQuery.of(context).size.width;
+    // double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: HexColor("#4a43ec"),
@@ -80,91 +103,166 @@ class NotificationsPage extends StatelessWidget {
           ),
         ),
       ),
-      body: ListView.builder(
-        itemCount: notifications.length,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        itemBuilder: (context, index) {
-          final notification = notifications[index];
-          return Card(
-            color: Colors.white54,
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    backgroundImage: AssetImage(notification['image']),
-                    radius: 30,
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator()) // Show loader
+          : hasError
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "Failed to load notifications",
+                        style: TextStyle(fontSize: 16, color: Colors.red),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton(
+                        onPressed: fetchNotifications,
+                        child: const Text("Retry"),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: screenWidth * 0.03),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          notification['name'],
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                )
+              : ListView.builder(
+                  itemCount: notifications.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  itemBuilder: (context, index) {
+                    final notification = notifications[index];
+                    return GestureDetector(
+                      // onTap: () {
+                      //   _notificationService
+                      //       .markAsRead(notification['notificationId']);
+                      //   if (notification['type'] == "Follow") {
+                      //     Navigator.push(
+                      //         context,
+                      //         MaterialPageRoute(
+                      //             builder: (context) => OthersProfile(
+                      //                 selectedId: notification['senderId'],
+                      //                 username: notification['senderName'],
+                      //                 imageUrl: notification['image'])));
+                      //   }
+                      // },
+                      child: Card(
+                        color: notification['isRead']
+                            ? Colors.white
+                            : Colors.grey[300],
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
                         ),
-                        SizedBox(height: screenHeight * 0.01),
-                        Text(
-                          notification['message'],
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        SizedBox(height: screenHeight * 0.01),
-                        Text(
-                          notification['time'],
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        if (notification['hasAction'])
-                          Row(
+                        elevation: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              OutlinedButton(
-                                onPressed: () {},
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(color: HexColor("#4a43ec")),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                child: const Text('Reject'),
+                              CircleAvatar(
+                                radius: 30,
+                                backgroundImage:
+                                    notification['profilePicture'] != null
+                                        ? MemoryImage(
+                                            notification['profilePicture'])
+                                        : null,
+                                backgroundColor: HexColor("#4a43ec"),
+                                child: notification['profilePicture'] == null
+                                    ? Text(
+                                        notification['senderName'][0]
+                                            .toUpperCase(), // Show first letter
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 18),
+                                      )
+                                    : null, // Or any default background color
                               ),
-                              SizedBox(width: screenHeight * 0.02),
-                              ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  backgroundColor: HexColor("#4a43ec"),
-                                  foregroundColor: Colors.white,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      notification['senderName'],
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      notification['message'],
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      notification['time'],
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    if (notification['hasAction'] &&
+                                        notification['isRead'] == false)
+                                      Row(
+                                        children: [
+                                          OutlinedButton(
+                                            onPressed: () async {
+                                              await _notificationService
+                                                  .markAsRead(notification[
+                                                      'notificationId']);
+                                              setState(() {
+                                                notifications[index]['isRead'] =
+                                                    true;
+                                              });
+                                            },
+                                            style: OutlinedButton.styleFrom(
+                                              side: BorderSide(
+                                                  color: HexColor("#4a43ec")),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                            child: const Text('Ignore'),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          ElevatedButton(
+                                            onPressed: () async {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      EventDetails(
+                                                    event: EventModel.fromJson(notification['event']),
+                                                  ),
+                                                ),
+                                              );
+                                              await _notificationService
+                                                  .markAsRead(notification[
+                                                      'notificationId']);
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              backgroundColor:
+                                                  HexColor("#4a43ec"),
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            child: const Text('View'),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
                                 ),
-                                child: const Text('Accept'),
                               ),
                             ],
                           ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }
