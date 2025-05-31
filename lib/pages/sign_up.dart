@@ -28,18 +28,31 @@ class _SignUpState extends State<SignUp> {
   String _selectedRole = 'User';
 
   Future<void> _signup(
-      String usernameText,
-      String emailText,
-      String passText,
-      File? profilePicture, // Added profilePicture parameter
-      String role // Added role parameter
-      ) async {
+    String usernameText,
+    String emailText,
+    String passText,
+    File? profilePicture,
+    String role,
+  ) async {
     final username = usernameText;
     final email = emailText;
     final password = passText;
 
+    if (profilePicture == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a profile picture.')),
+      );
+      return;
+    }
+
     final success = await _authService.signup(
-        username, email, password, profilePicture!, role);
+      username,
+      email,
+      password,
+      profilePicture,
+      role,
+    );
+
     if (success) {
       Navigator.pushReplacement(
         context,

@@ -2,6 +2,7 @@
 
 import 'dart:io';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
 import 'package:smart_event_frontend/models/user_model.dart';
@@ -28,31 +29,44 @@ class LoginState extends State<Login> {
   final _formkey = GlobalKey<FormState>();
   String? userNotFoundError;
   String? incorrectPasswordError;
-
+  
   final AuthService _authService = AuthService();
 
   Future<void> _login(String emailText, String passwordText) async {
+    
     final email = emailText;
     final password = passwordText;
 
+    String? fcmToken = await FirebaseMessaging.instance.getToken();
+    print('FCM Token: $fcmToken');
+
     final response = await _authService.login(email, password);
+
     if (response != null) {
       if (response['token'] != null) {
         await _authService.storeToken(response['token']);
         await _authService.storeRole(response['role']);
-        final user = UserModel.fromJson(response['data']);
-        await UserStorageService().storeUser(user);
 
+        final userData = response['data'];
+        final userId = userData?['id'];
+
+        if (fcmToken != null && userId != null) {
+          await _authService.storeDeviceToken(fcmToken);
+          await _authService.saveDeviceToken(userId, fcmToken);
+        }
+
+        final user = UserModel.fromJson(userData);
+        await UserStorageService().storeUser(user);
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) =>  const MainScreen()),
+          MaterialPageRoute(builder: (context) => const MainScreen()),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content:
-                  Text(response['message'] ?? 'Invalid login credentials')),
+            content: Text(response['message'] ?? 'Invalid login credentials'),
+          ),
         );
       }
     } else {

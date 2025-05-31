@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http_parser/http_parser.dart';
@@ -29,18 +30,28 @@ class AuthService {
     }
   }
 
-  Future<bool> signup(String username, String email, String password,
-      File profilePicture, String role) async {
+  Future<bool> signup(
+    String username,
+    String email,
+    String password,
+    File profilePicture,
+    String role,
+  ) async {
     final uri = Uri.parse('$baseUrl/create');
 
+    String? deviceToken = await FirebaseMessaging.instance.getToken();
+
     var request = http.MultipartRequest('POST', uri)
-      ..headers['Content-Type'] = 'application/json'
       ..fields['username'] = username
       ..fields['email'] = email
       ..fields['password'] = password
       ..fields['role'] = role;
 
-    if (profilePicture != null) {
+    if (deviceToken != null) {
+      request.fields['deviceToken'] = deviceToken;
+    }
+
+    if (profilePicture.path.isNotEmpty) {
       var picture = await http.MultipartFile.fromPath(
         'profilePicture',
         profilePicture.path,
@@ -71,13 +82,20 @@ class AuthService {
     await storage.write(key: 'auth_token', value: token);
   }
 
+  Future<void> storeDeviceToken(String token) async {
+    await storage.write(key: 'device_token', value: token);
+  }
+
   Future<void> storeRole(String role) async {
     await storage.write(key: 'role', value: role);
   }
 
-  // Retrieve token
   Future<String?> getToken() async {
     return await storage.read(key: 'auth_token');
+  }
+
+  Future<String?> getDeviceToken() async {
+    return await storage.read(key: 'device_token');
   }
 
   Future<String?> getRole() async {
@@ -104,6 +122,29 @@ class AuthService {
     } catch (e) {
       print('Error during forgotPassword: $e');
       return null;
+    }
+  }
+
+  Future<bool> saveDeviceToken(String userId, String deviceToken) async {
+    final uri = Uri.parse('$baseUrl/save-device-token');
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'userId': userId, 'deviceToken': deviceToken}),
+      );
+
+      if (response.statusCode == 200) {
+        print('Device token saved successfully.');
+        return true;
+      } else {
+        print('Failed to save device token: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Error during saveDeviceToken: $e');
+      return false;
     }
   }
 }

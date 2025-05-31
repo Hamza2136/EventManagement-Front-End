@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:smart_event_frontend/models/event_model.dart';
 import 'package:smart_event_frontend/pages/event_details_page.dart';
 import 'package:smart_event_frontend/pages/events.dart';
-import 'package:smart_event_frontend/pages/rsvp_event_details.dart';
 import 'package:smart_event_frontend/pages/shareApp.dart';
 import 'package:smart_event_frontend/pages/sidebar.dart';
 import 'package:smart_event_frontend/services/event_service.dart';
@@ -74,9 +74,18 @@ class HomePageState extends State<HomePage> {
     return DateFormat('EEE, MMM d yyyy - h:mm a').format(dateTime);
   }
 
+// Check and request notification permission at runtime
+  void requestNotificationPermission() async {
+    if (await Permission.notification.isDenied) {
+      // Request notification permission
+      await Permission.notification.request();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    requestNotificationPermission();
     filteredEvents = EventService().getAllUpcomingEvents();
   }
 
@@ -147,7 +156,7 @@ class HomePageState extends State<HomePage> {
                   ],
                 ),
                 const Text(
-                  'New York, USA',
+                  'Bahawalpur Pakistan',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -261,7 +270,8 @@ class HomePageState extends State<HomePage> {
           ),
           SizedBox(height: screenHeight * 0.01),
           sectionTitle('Upcoming Events', onSeeAll: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context)=>const Events()));
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => const Events()));
           }),
           SizedBox(height: screenHeight * 0.01),
           FutureBuilder<List<EventModel>>(
@@ -347,7 +357,8 @@ class HomePageState extends State<HomePage> {
           ),
           SizedBox(height: screenHeight * 0.01),
           sectionTitle('Nearby You', onSeeAll: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context)=>const Events()));
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => const Events()));
           }),
           SizedBox(height: screenHeight * 0.01),
           FutureBuilder<List<EventModel>>(
@@ -502,7 +513,6 @@ class HomePageState extends State<HomePage> {
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
